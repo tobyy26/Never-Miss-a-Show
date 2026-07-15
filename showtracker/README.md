@@ -1,8 +1,6 @@
-# Nearby shows
+# Nearby Shows
 
-A tiny PWA: tap "I'm here," it checks Ticketmaster + Bandsintown for your
-favorite artists near your current location, shows the results, and
-optionally emails them to you via Resend.
+A tiny PWA for pilots and travelers: tap "I'm here," and it checks Ticketmaster + Bandsintown for your favorite artists within your custom radius of your current GPS location, displaying the live results right in your app.
 
 ## What's here
 
@@ -18,21 +16,10 @@ functions/api/
 
 ## 1. Get your API keys
 
-- **Ticketmaster**: self-serve, free. Sign up at
-  https://developer-acct.ticketmaster.com/ and grab your Consumer Key —
-  that's your `TICKETMASTER_KEY`.
-- **Bandsintown**: requires manual approval. Email `API@bandsintown.com`
-  explaining you're building a personal app to track your own favorite
-  artists' tour dates, and ask for an app ID. Takes a few days. That's
-  your `BANDSINTOWN_APP_ID`.
-- **Resend** (for email): sign up at https://resend.com, verify a sending
-  domain (or use their test domain while developing), and grab an API key
-  — that's your `RESEND_API_KEY`. `RESEND_FROM` is the address you send
-  from, e.g. `shows@yourdomain.com`.
+- **Ticketmaster**: self-serve, free. Sign up at https://developer-acct.ticketmaster.com/ and grab your Consumer Key — that's your `TICKETMASTER_KEY`.
+- **Bandsintown**: requires manual approval. Email `API@bandsintown.com` explaining you're building a personal app to track your own favorite artists' tour dates, and ask for an app ID. Takes a few days. That's your `BANDSINTOWN_APP_ID`.
 
-You can start with just Ticketmaster if you want to get something running
-today — Bandsintown approval can come later, the code already handles a
-missing key by just skipping that source.
+*Note: You can start with just Ticketmaster if you want to get something running today — Bandsintown approval can come later, the code automatically handles a missing key by skipping that source.*
 
 ## 2. Local setup
 
@@ -46,11 +33,9 @@ Create a `.dev.vars` file (not committed) for local testing:
 ```
 TICKETMASTER_KEY=your_key_here
 BANDSINTOWN_APP_ID=your_app_id_here
-RESEND_API_KEY=your_resend_key_here
-RESEND_FROM=shows@yourdomain.com
 ```
 
-Then:
+Then run the local development server:
 
 ```bash
 npm run dev
@@ -72,15 +57,9 @@ separate from `.dev.vars`, which only works locally):
 ```bash
 npx wrangler pages secret put TICKETMASTER_KEY --project-name=nearby-shows
 npx wrangler pages secret put BANDSINTOWN_APP_ID --project-name=nearby-shows
-npx wrangler pages secret put RESEND_API_KEY --project-name=nearby-shows
-npx wrangler pages secret put RESEND_FROM --project-name=nearby-shows
 ```
 
-Cloudflare gives you a URL like `nearby-shows.pages.dev`. That's your live
-app — no Gist, no separate hosting, it's all in this one Pages project.
-You can also connect this folder to a GitHub repo in the Cloudflare
-dashboard for auto-deploys on every push, if you'd rather not run the CLI
-each time.
+Cloudflare gives you a URL like nearby-shows.pages.dev. That's your live app!
 
 ## 4. Add it to your home screen
 
