@@ -1,1 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Nearby Shows ✈️</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#121212">
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --accent-color: #ff5a5f;
+      --text-main: #ffffff;
+      --text-muted: #a0a0a0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 500px;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    input[type="text"], input[type="range"] {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    input[type="text"] {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .slider-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .btn {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 14px;
+      width: 100%;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+    }
+    .artist-chip {
+      background: #333;
+      padding: 6px 12px;
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px;
+      font-size: 14px;
+    }
+    .artist-chip button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .show-card {
+      border-left: 4px solid var(--accent-color);
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #252525;
+      border-radius: 0 8px 8px 0;
+    }
+    .show-title { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
+    .show-meta { color: var(--text-muted); font-size: 12px; }
+    .ticket-btn {
+      display: inline-block;
+      margin-top: 8px;
+      color: var(--accent-color);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <h1>Nearby Shows ✈️</h1>
+    
+    <div class="card">
+      <label>Tracked Artists</label>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="artistInput" placeholder="Add artist (e.g. Odesza)">
+        <button onclick="addArtist()" style="background:#444; border:none; color:white; padding:0 16px; border-radius:8px;">Add</button>
+      </div>
+      <div id="artistList" style="margin-top: 12px;"></div>
+    </div>
 
+    <div class="card">
+      <label>Search Radius: <span id="radiusVal">25</span> miles</label>
+      <input type="range" id="radiusInput" min="5" max="150" value="25" oninput="updateRadiusVal(this.value)">
+    </div>
+
+    <button id="locateBtn" class="btn" onclick="findShows()">
+      <span>Find Shows Nearby</span>
+    </button>
+
+    <div id="results" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    let artists = JSON.parse(localStorage.getItem('trackedArtists')) || [];
+    let searchRadius = localStorage.getItem('searchRadius') || 25;
+
+    document.getElementById('radiusInput').value = searchRadius;
+    document.getElementById('radiusVal').innerText = searchRadius;
+
+    function saveToStorage() {
+      localStorage.setItem('trackedArtists', JSON.stringify(artists));
+      localStorage.setItem('searchRadius', searchRadius);
+    }
+
+    function renderArtists() {
+      const container = document.getElementById('artistList');
+      container.innerHTML = artists.length === 0 ? '<p style="color:var(--text-muted); font-size:14px; margin:0;">No artists tracked yet.</p>' : '';
+      artists.forEach((art, i) => {
+        container.innerHTML += `
+          <span class="artist-chip">${art} <button onclick="removeArtist(${i})">&times;</button></span>
+        `;
+      });
+    }
+
+    function addArtist() {
+      const input = document.getElementById('artistInput');
+      const val = input.value.trim();
+      if (val && !artists.includes(val)) {
+        artists.push(val);
+        input.value = '';
+        saveToStorage();
+        renderArtists();
+      }
+    }
+
+    function removeArtist(index) {
+      artists.splice(index, 1);
+      saveToStorage();
+      renderArtists();
+    }
+
+    function updateRadiusVal(val) {
+      searchRadius = val;
+      document.getElementById('radiusVal').innerText = val;
+      saveToStorage();
+    }
+
+    async function findShows() {
+      if (artists.length === 0) {
+        alert("Please track at least one artist first!");
+        return;
+      }
+
+      const btn = document.getElementById('locateBtn');
+      const resultsDiv = document.getElementById('results');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Finding your location...';
+      resultsDiv.innerHTML = '';
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          btn.innerHTML = '<div class="spinner"></div> Querying concert data...';
+
+          try {
+            const response = await fetch('/api/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lat, lon, radius: searchRadius, artists })
+            });
+
+            const data = await response.json();
+            btn.innerHTML = 'Find Shows Nearby';
+            btn.disabled = false;
+
+            if (data.shows && data.shows.length > 0) {
+              resultsDiv.innerHTML = `<h3>Upcoming Nearby Shows:</h3>`;
+              data.shows.forEach(show => {
+                resultsDiv.innerHTML += `
+                  <div class="show-card">
+                    <div class="show-title">${show.name}</div>
+                    <div class="show-meta">📅 ${show.date} | 📍 ${show.venue}</div>
+                    <a href="${show.url}" target="_blank" class="ticket-btn">Get Tickets →</a>
+                  </div>
+                `;
+              });
+            } else {
+              resultsDiv.innerHTML = `<p style="text-align:center; color:var(--text-muted); margin-top:20px;">No upcoming shows found nearby. Safe travels!</p>`;
+            }
+          } catch (err) {
+            btn.innerHTML = 'Find Shows Nearby';
+            btn.disabled = false;
+            resultsDiv.innerHTML = `<p style="color:var(--accent-color);">Error fetching data. Please try again later.</p>`;
+          }
+        },
+        (error) => {
+          btn.innerHTML = 'Find Shows Nearby';
+          btn.disabled = false;
+          resultsDiv.innerHTML = `<p style="color:var(--accent-color);">Geolocation permission denied or unavailable.</p>`;
+        }
+      );
+    }
+
+    renderArtists();
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>
