@@ -31,7 +31,7 @@
     margin-bottom: 16px;
   }
   label { font-size: 13px; color: #b5b3aa; display: block; margin-bottom: 6px; }
-  input[type=text], input[type=email], input[type=number] {
+  input[type=text], input[type=number] {
     width: 100%;
     background: #141414;
     border: 1px solid #3a3937;
@@ -39,8 +39,9 @@
     border-radius: 8px;
     padding: 10px 12px;
     font-size: 15px;
-    margin-bottom: 12px;
+    margin-bottom: 4px;
   }
+  .hint { font-size: 12px; color: #7a7870; margin-top: 4px; display: block; }
   .artist-tag {
     display: inline-flex;
     align-items: center;
@@ -49,7 +50,7 @@
     border-radius: 20px;
     padding: 6px 10px 6px 14px;
     font-size: 13px;
-    margin: 0 6px 6px 0;
+    margin: 6px 6px 0 0;
   }
   .artist-tag button {
     background: none;
@@ -72,24 +73,15 @@
     cursor: pointer;
   }
   button.primary:disabled { opacity: 0.5; }
-  button.secondary {
-    background: #2a2a27;
-    color: #f0f0ec;
-    border: 1px solid #3a3937;
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
-    cursor: pointer;
-  }
   .status { font-size: 13px; color: #9c9a92; margin-top: 10px; text-align: center; }
   .event {
     border-bottom: 1px solid #2a2a27;
     padding: 12px 0;
   }
   .event:last-child { border-bottom: none; }
-  .event .artist { font-weight: 600; font-size: 15px; }
-  .event .meta { font-size: 13px; color: #9c9a92; margin-top: 2px; }
-  .event a { color: #d85a30; text-decoration: none; font-size: 13px; }
+  .event .artist { font-weight: 600; font-size: 15px; color: #fff; }
+  .event .meta { font-size: 13px; color: #9c9a92; margin-top: 4px; }
+  .event a { display: inline-block; margin-top: 6px; color: #d85a30; text-decoration: none; font-size: 13px; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -105,8 +97,7 @@
   <div class="card">
     <label for="radius">Search radius (miles)</label>
     <input type="number" id="radius" value="30" min="5" max="150" />
-    <label for="email">Email results to (optional)</label>
-    <input type="email" id="email" placeholder="you@example.com" />
+    <span class="hint">Adjust based on how far you're willing to travel from your hotel.</span>
   </div>
 
   <button class="primary" id="goBtn">I'm here — check for shows</button>
@@ -116,11 +107,10 @@
 
 <script>
   const ARTISTS_KEY = "nearby-shows:artists";
-  const EMAIL_KEY = "nearby-shows:email";
+  const RADIUS_KEY = "nearby-shows:radius";
 
   const artistInput = document.getElementById("artistInput");
   const artistList = document.getElementById("artistList");
-  const emailInput = document.getElementById("email");
   const radiusInput = document.getElementById("radius");
   const goBtn = document.getElementById("goBtn");
   const statusEl = document.getElementById("status");
@@ -158,9 +148,10 @@
     }
   });
 
-  emailInput.value = localStorage.getItem(EMAIL_KEY) || "";
-  emailInput.addEventListener("change", () => {
-    localStorage.setItem(EMAIL_KEY, emailInput.value.trim());
+  // Load saved radius or default to 30
+  radiusInput.value = localStorage.getItem(RADIUS_KEY) || "30";
+  radiusInput.addEventListener("change", () => {
+    localStorage.setItem(RADIUS_KEY, radiusInput.value.trim());
   });
 
   renderArtists();
@@ -191,21 +182,21 @@
       const { latitude: lat, longitude: lng } = pos.coords;
       statusEl.textContent = "Figuring out what city you're in...";
       const city = await reverseGeocodeCity(lat, lng);
+      const currentRadius = Number(radiusInput.value) || 30;
 
-      statusEl.textContent = `Checking shows near ${city}...`;
+      statusEl.textContent = `Checking shows within ${currentRadius} miles of ${city}...`;
       try {
         const res = await fetch("/api/lookup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             lat, lng, city,
-            radiusMiles: Number(radiusInput.value) || 30,
-            artists,
-            email: emailInput.value.trim() || undefined,
+            radiusMiles: currentRadius,
+            artists
           }),
         });
         const data = await res.json();
-        renderResults(data, city);
+        renderResults(data, city, currentRadius);
       } catch (err) {
         statusEl.textContent = "Something went wrong. Try again.";
       } finally {
@@ -217,19 +208,19 @@
     });
   });
 
-  function renderResults(data, city) {
+  function renderResults(data, city, radius) {
     resultsEl.style.display = "block";
     if (!data.events || data.events.length === 0) {
-      statusEl.textContent = `No shows found near ${city}.`;
-      resultsEl.innerHTML = "";
+      statusEl.textContent = `No shows found within ${radius} miles of ${city}.`;
+      resultsEl.innerHTML = "<div style='color:#9c9a92; font-size:14px; text-align:center; padding:12px 0;'>No upcoming shows found nearby. Get some rest!</div>";
       return;
     }
-    statusEl.textContent = `${data.events.length} show(s) near ${city}${emailInput.value ? " — also emailed to you" : ""}`;
+    statusEl.textContent = `Found ${data.events.length} show(s) within ${radius} miles of ${city}`;
     resultsEl.innerHTML = data.events.map(e => `
       <div class="event">
         <div class="artist">${e.artist}</div>
-        <div class="meta">${e.venue}${e.venue ? ", " : ""}${e.city} · ${new Date(e.date).toLocaleString()}</div>
-        ${e.url ? `<a href="${e.url}" target="_blank" rel="noopener">Tickets →</a>` : ""}
+        <div class="meta">${e.venue}${e.venue ? ", " : ""}${e.city} · ${new Date(e.date).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</div>
+        ${e.url ? `<a href="${e.url}" target="_blank" rel="noopener">Get Tickets →</a>` : ""}
       </div>
     `).join("");
   }
