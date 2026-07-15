@@ -1,6 +1,6 @@
 // POST /api/lookup
-// Body: { lat, lng, radiusMiles, artists: string[], email?: string }
-// Env vars needed (set as Pages secrets): TICKETMASTER_KEY, BANDSINTOWN_APP_ID, RESEND_API_KEY, RESEND_FROM
+// Body: { lat, lng, radiusMiles, artists: string[], city?: string }
+// Env vars needed (set as Pages secrets): TICKETMASTER_KEY, BANDSINTOWN_APP_ID
 
 function haversineMiles(lat1, lng1, lat2, lng2) {
   const R = 3958.8;
@@ -83,37 +83,6 @@ async function fetchBandsintown(env, lat, lng, radiusMiles, artist) {
   }
 }
 
-async function sendEmail(env, to, city, events) {
-  if (!env.RESEND_API_KEY || !env.RESEND_FROM || !to) return;
-
-  const rows = events
-    .map(
-      (e) =>
-        `<li><strong>${e.artist}</strong> — ${e.title} · ${e.venue}, ${e.city} · ${new Date(
-          e.date
-        ).toLocaleString()} · <a href="${e.url}">tickets</a></li>`
-    )
-    .join("");
-
-  const html = events.length
-    ? `<p>Shows near ${city} for your favorite artists:</p><ul>${rows}</ul>`
-    : `<p>No shows found near ${city} for your favorite artists right now.</p>`;
-
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: env.RESEND_FROM,
-      to,
-      subject: `Shows near ${city}`,
-      html,
-    }),
-  });
-}
-
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -124,7 +93,7 @@ export async function onRequestPost(context) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { lat, lng, radiusMiles = 30, artists = [], email, city = "" } = body;
+  const { lat, lng, radiusMiles = 30, artists = [], city = "" } = body;
 
   if (typeof lat !== "number" || typeof lng !== "number") {
     return Response.json({ error: "lat and lng (numbers) are required" }, { status: 400 });
@@ -156,11 +125,6 @@ export async function onRequestPost(context) {
   }
 
   const events = [...seen.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  if (email) {
-    // don't block the response on email sending
-    context.waitUntil(sendEmail(env, email, city, events));
-  }
 
   return Response.json({ count: events.length, events });
 }
